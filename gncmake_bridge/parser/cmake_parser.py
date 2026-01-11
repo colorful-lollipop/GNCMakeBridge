@@ -39,12 +39,11 @@ def parse_cmake_file(content: str) -> list[Target]:
 
 
 def extract_paren_content(lines: list[str], start_idx: int, start_pos: int = 0) -> list[str]:
-    depth = 0
+    depth = 1
     in_string = False
     quote_char = None
     content_lines: list[str] = []
     current_line = ""
-    first_paren_found = True
 
     for idx in range(start_idx, len(lines)):
         line = lines[idx]
@@ -59,18 +58,14 @@ def extract_paren_content(lines: list[str], start_idx: int, start_pos: int = 0) 
                     quote_char = char
                     current_line += char
                 elif char == "(":
-                    if first_paren_found:
-                        depth += 1
-                    else:
-                        first_paren_found = True
+                    depth += 1
                     current_line += char
                 elif char == ")":
-                    if first_paren_found:
-                        if depth == 0:
-                            if current_line.strip():
-                                content_lines.append(current_line.strip())
-                            return content_lines
-                        depth -= 1
+                    depth -= 1
+                    if depth == 0:
+                        if current_line.strip():
+                            content_lines.append(current_line.strip())
+                        return content_lines
                     current_line += char
                 else:
                     current_line += char

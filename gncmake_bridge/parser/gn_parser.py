@@ -128,7 +128,16 @@ def parse_gn_file(content: str) -> list[Target]:
                             "inputs",
                             "outputs",
                         ):
-                            properties[prop_name] = parse_list(prop_value)
+                            full_value = prop_value
+                            if not full_value.endswith("]"):
+                                j = i + 1
+                                while j < len(lines) and not lines[j].strip().endswith("]"):
+                                    full_value += " " + lines[j].strip()
+                                    j += 1
+                                if j < len(lines):
+                                    full_value += " " + lines[j].strip()
+                                    i = j
+                            properties[prop_name] = parse_list(full_value)
                         elif prop_name in (
                             "output_name",
                             "script",

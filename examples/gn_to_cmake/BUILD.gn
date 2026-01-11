@@ -1,0 +1,30 @@
+# GN Example Project - Simple Executable
+# This can be converted to CMake
+
+executable("hello_world") {
+  sources = [
+    "main.cc",
+    "utils.cc",
+  ]
+  deps = [
+    ":utils",
+  ]
+}
+
+static_library("utils") {
+  sources = [
+    "string_utils.cc",
+    "file_utils.cc",
+  ]
+  headers = [
+    "string_utils.h",
+    "file_utils.h",
+  ]
+  cflags = [
+    "-Wall",
+    "-O2",
+  ]
+  include_dirs = [
+    ".",
+  ]
+}
