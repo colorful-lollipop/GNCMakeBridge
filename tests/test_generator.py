@@ -1,6 +1,4 @@
-import pytest
-
-from gncmake_bridge import GNGenerator, CMakeGenerator, Target, TargetType
+from gncmake_bridge import CMakeGenerator, GNGenerator, Target, TargetType
 
 
 class TestGNGenerator:

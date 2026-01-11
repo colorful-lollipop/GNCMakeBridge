@@ -1,0 +1,2 @@
+[console_scripts]
+gncmake-bridge = gncmake_bridge.cli:main

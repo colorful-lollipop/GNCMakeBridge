@@ -1,9 +1,9 @@
 __version__ = "0.1.0"
 
+from gncmake_bridge.converter import ConversionMode, Converter
+from gncmake_bridge.generator import CMakeGenerator, GNGenerator
 from gncmake_bridge.ir import Target, TargetType, Toolchain
-from gncmake_bridge.parser import GNParser, CMakeParser
-from gncmake_bridge.generator import GNGenerator, CMakeGenerator
-from gncmake_bridge.converter import Converter, ConversionMode
+from gncmake_bridge.parser import CMakeParser, GNParser
 
 __all__ = [
     "__version__",

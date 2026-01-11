@@ -1,10 +1,8 @@
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
-from gncmake_bridge.ir import Target, Toolchain
-from gncmake_bridge.parser import GNParser, CMakeParser
-from gncmake_bridge.generator import GNGenerator, CMakeGenerator
+from gncmake_bridge.generator import CMakeGenerator, GNGenerator
+from gncmake_bridge.parser import CMakeParser, GNParser
 
 
 class ConversionMode(Enum):
@@ -33,9 +31,7 @@ class Converter:
             gn_lines.append(self._gn_generator.generate(target))
         return "\n\n".join(gn_lines)
 
-    def convert_file(
-        self, input_path: Path, output_path: Path, mode: ConversionMode
-    ) -> None:
+    def convert_file(self, input_path: Path, output_path: Path, mode: ConversionMode) -> None:
         content = input_path.read_text()
 
         if mode == ConversionMode.GN_TO_CMAKE:

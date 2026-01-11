@@ -2,205 +2,170 @@ import re
 from pathlib import Path
 from typing import Any
 
-from lark import Lark, Transformer, v_args
-
 from gncmake_bridge.ir import Target, TargetType
 
 
-GRAMMAR = r"""
-    start: file
-
-    file: statement*
-
-    statement: target_def
-             | import_def
-             | config_def
-             | template_def
-             | variable_assign
-             | condition
-
-    target_def: target_type "(" STRING ")" "{" target_body "}"
-
-    target_type: "executable"
-               | "static_library"
-               | "shared_library"
-               | "source_set"
-               | "group"
-               | "action"
-               | "generated_file"
-
-    target_body: target_property*
-
-    target_property: "sources" "=" "[" list_items "]"
-                   | "headers" "=" "[" list_items "]"
-                   | "deps" "=" "[" list_items "]"
-                   | "public_deps" "=" "[" list_items "]"
-                   | "private_deps" "=" "[" list_items "]"
-                   | "data_deps" "=" "[" list_items "]"
-                   | "cflags" "=" "[" list_items "]"
-                   | "cflags_cc" "=" "[" list_items "]"
-                   | "ldflags" "=" "[" list_items "]"
-                   | "include_dirs" "=" "[" list_items "]"
-                   | "defines" "=" "[" list_items "]"
-                   | "visibility" "=" "[" list_items "]"
-                   | "output_name" "=" STRING
-                   | "configs" "=" "[" list_items "]"
-                   | "inputs" "=" "[" list_items "]"
-                   | "outputs" "=" "[" list_items "]"
-                   | "script" "=" STRING
-                   | "response_file_name" "=" STRING
-                   | "testonly" "=" bool_value
-                   | "complete_static_lib" "=" bool_value
-                   | condition
-
-    list_items: (STRING | variable_ref)*
-    variable_ref: "$" "(" NAME ")"
-
-    import_def: "import" "(" STRING ")"
-    config_def: "config" "(" NAME ")" "{" config_body "}"
-    template_def: "template" "(" NAME ")" "{" template_body "}"
-    variable_assign: NAME "=" value
-    condition: "if" "(" expr ")" "{" statement* "}"
-
-    config_body: config_property*
-    config_property: "cflags" "=" "[" list_items "]"
-                   | "include_dirs" "=" "[" list_items "]"
-                   | "defines" "=" "[" list_items "]"
-
-    template_body: statement*
-
-    value: STRING
-         | "[" list_items "]"
-         | "true"
-         | "false"
-
-    bool_value: "true" | "false"
-
-    expr: NAME ("|" NAME)*
-
-    STRING: /"(?:[^"\\]|\\.)*"|\'(?:[^'\\]|\\.)*\'/
-    NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
-
-    %ignore /\s+/
-    %ignore "//" /[^\n]*/
-"""
+def strip_string(s: str) -> str:
+    s = s.strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        return s[1:-1]
+    return s
 
 
-class GNTransformer(Transformer):
-    def __init__(self) -> None:
-        super().__init__()
+def parse_list(value: str) -> list[str]:
+    value = value.strip()
+    if not value.startswith("[") or not value.endswith("]"):
+        return []
+    content = value[1:-1].strip()
+    if not content:
+        return []
+    items = []
+    current = ""
+    in_string = False
+    quote_char = None
+    depth = 0
 
-    def start(self, items: Any) -> Any:
-        return items
-
-    def file(self, items: Any) -> Any:
-        return [item for item in items if item is not None]
-
-    def target_def(self, items: Any) -> Target | None:
-        target_type_map = {
-            "executable": TargetType.EXECUTABLE,
-            "static_library": TargetType.STATIC_LIBRARY,
-            "shared_library": TargetType.SHARED_LIBRARY,
-            "source_set": TargetType.SOURCE_SET,
-            "group": TargetType.GROUP,
-            "action": TargetType.ACTION,
-            "generated_file": TargetType.GENERATE_FILE,
-        }
-        target_type_str = str(items[0])
-        target_type = target_type_map.get(target_type_str, TargetType.UNKNOWN)
-        name = str(items[1]).strip('"\'')
-        properties = items[2] if len(items) > 2 else {}
-
-        return Target(
-            name=name,
-            type=target_type,
-            sources=properties.get("sources", []),
-            headers=properties.get("headers", []),
-            deps=properties.get("deps", []),
-            public_deps=properties.get("public_deps", []),
-            private_deps=properties.get("private_deps", []),
-            data_deps=properties.get("data_deps", []),
-            compile_flags=properties.get("cflags", []),
-            link_flags=properties.get("ldflags", []),
-            include_dirs=properties.get("include_dirs", []),
-            defines=properties.get("defines", []),
-            visibility=properties.get("visibility", []),
-            output_name=properties.get("output_name"),
-            configs=properties.get("configs", []),
-        )
-
-    def target_body(self, items: Any) -> dict[str, Any]:
-        properties: dict[str, Any] = {}
-        for item in items:
-            if isinstance(item, dict):
-                properties.update(item)
-        return properties
-
-    def target_property(self, items: Any) -> tuple[str, Any]:
-        key = str(items[0])
-        value = items[1]
-        if isinstance(value, list):
-            value = [str(v).strip('"\'') for v in value]
+    for char in content:
+        if not in_string:
+            if char in ('"', "'"):
+                in_string = True
+                quote_char = char
+                current += char
+            elif char == "[":
+                depth += 1
+                current += char
+            elif char == "]":
+                depth -= 1
+                current += char
+            elif char == "," and depth == 0:
+                if current.strip():
+                    items.append(current.strip())
+                current = ""
+            else:
+                current += char
         else:
-            value = str(value).strip('"\'')
-        return (key, value)
+            current += char
+            if char == quote_char and (len(current) < 2 or current[-2] != "\\"):
+                in_string = False
+                quote_char = None
 
-    def sources(self, items: Any) -> Any:
-        return ("sources", items[1])
+    if current.strip():
+        items.append(current.strip())
 
-    def headers(self, items: Any) -> Any:
-        return ("headers", items[1])
+    return [strip_string(item) for item in items if strip_string(item)]
 
-    def deps(self, items: Any) -> Any:
-        return ("deps", items[1])
 
-    def public_deps(self, items: Any) -> Any:
-        return ("public_deps", items[1])
+def parse_gn_file(content: str) -> list[Target]:
+    targets: list[Target] = []
+    content = content.strip()
+    lines = content.split("\n")
 
-    def private_deps(self, items: Any) -> Any:
-        return ("private_deps", items[1])
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
 
-    def data_deps(self, items: Any) -> Any:
-        return ("data_deps", items[1])
+        target_match = re.match(
+            r'^(executable|static_library|shared_library|source_set|group|action|generated_file)\s*\(\s*["\']?(\w+)["\']?\s*\)',
+            line,
+        )
+        if target_match:
+            target_type_str = target_match.group(1)
+            target_name = target_match.group(2)
 
-    def cflags(self, items: Any) -> Any:
-        return ("cflags", items[1])
+            type_map = {
+                "executable": TargetType.EXECUTABLE,
+                "static_library": TargetType.STATIC_LIBRARY,
+                "shared_library": TargetType.SHARED_LIBRARY,
+                "source_set": TargetType.SOURCE_SET,
+                "group": TargetType.GROUP,
+                "action": TargetType.ACTION,
+                "generated_file": TargetType.GENERATE_FILE,
+            }
+            target_type = type_map.get(target_type_str, TargetType.UNKNOWN)
 
-    def ldflags(self, items: Any) -> Any:
-        return ("ldflags", items[1])
+            properties: dict[str, Any] = {}
 
-    def include_dirs(self, items: Any) -> Any:
-        return ("include_dirs", items[1])
+            current_line = line
+            brace_depth = current_line.count("{") - current_line.count("}")
 
-    def defines(self, items: Any) -> Any:
-        return ("defines", items[1])
+            if brace_depth == 0:
+                i += 1
+                if i < len(lines):
+                    next_line = lines[i].strip()
+                    if next_line == "{":
+                        brace_depth = 1
+                        i += 1
+            else:
+                i += 1
 
-    def visibility(self, items: Any) -> Any:
-        return ("visibility", items[1])
+            while i < len(lines) and brace_depth > 0:
+                current_line = lines[i].rstrip()
+                current_line_stripped = current_line.strip()
 
-    def output_name(self, items: Any) -> Any:
-        return ("output_name", str(items[1]).strip('"\''))
+                brace_change = current_line_stripped.count("{") - current_line_stripped.count("}")
+                brace_depth += brace_change
 
-    def configs(self, items: Any) -> Any:
-        return ("configs", items[1])
+                if current_line_stripped and not current_line_stripped.startswith("//"):
+                    prop_match = re.match(r"^(\w+)\s*=\s*(.+)$", current_line_stripped)
+                    if prop_match:
+                        prop_name = prop_match.group(1)
+                        prop_value = prop_match.group(2).strip()
 
-    def list_items(self, items: Any) -> list[str]:
-        return [str(item).strip('"\'') for item in items]
+                        if prop_name in (
+                            "sources",
+                            "headers",
+                            "deps",
+                            "public_deps",
+                            "private_deps",
+                            "data_deps",
+                            "cflags",
+                            "cflags_cc",
+                            "ldflags",
+                            "include_dirs",
+                            "defines",
+                            "visibility",
+                            "configs",
+                        ):
+                            properties[prop_name] = parse_list(prop_value)
+                        elif prop_name == "output_name":
+                            properties[prop_name] = strip_string(prop_value)
+                        elif prop_name in ("testonly", "complete_static_lib"):
+                            properties[prop_name] = prop_value == "true"
 
-    def STRING(self, token: Any) -> str:
-        return str(token)[1:-1]
+                i += 1
+                if brace_depth == 0:
+                    break
 
-    def bool_value(self, items: Any) -> bool:
-        return str(items[0]) == "true"
+            target = Target(
+                name=target_name,
+                type=target_type,
+                sources=properties.get("sources", []),
+                headers=properties.get("headers", []),
+                deps=properties.get("deps", []),
+                public_deps=properties.get("public_deps", []),
+                private_deps=properties.get("private_deps", []),
+                data_deps=properties.get("data_deps", []),
+                compile_flags=properties.get("cflags", []),
+                link_flags=properties.get("ldflags", []),
+                include_dirs=properties.get("include_dirs", []),
+                defines=properties.get("defines", []),
+                visibility=properties.get("visibility", []),
+                output_name=properties.get("output_name"),
+                configs=properties.get("configs", []),
+            )
+            targets.append(target)
+        else:
+            i += 1
+
+    return targets
 
 
 class GNParser:
     def __init__(self) -> None:
-        self._parser = Lark(GRAMMAR, parser="lalr", transformer=GNTransformer())
+        pass
 
     def parse(self, content: str) -> list[Target]:
-        tree = self._parser.parse(content)
-        return [node for node in tree if isinstance(node, Target)]
+        return parse_gn_file(content)
 
     def parse_file(self, path: Path) -> list[Target]:
         content = path.read_text()

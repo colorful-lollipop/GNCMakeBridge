@@ -1,8 +1,7 @@
 import argparse
-import sys
 from pathlib import Path
 
-from gncmake_bridge import Converter, ConversionMode
+from gncmake_bridge.converter import ConversionMode, Converter
 
 
 def main() -> None:

@@ -1,5 +1,3 @@
-from typing import Any
-
 from gncmake_bridge.ir import Target, TargetType
 
 
@@ -30,19 +28,19 @@ class GNGenerator:
         if target.deps:
             lines.append(f"{self._indent}deps = [")
             for dep in target.deps:
-                lines.append(f'{self._indent}  "{dep}",')
+                lines.append(f'{self._indent}  ":{dep}",')
             lines.append(f"{self._indent}]")
 
         if target.public_deps:
             lines.append(f"{self._indent}public_deps = [")
             for dep in target.public_deps:
-                lines.append(f'{self._indent}  "{dep}",')
+                lines.append(f'{self._indent}  ":{dep}",')
             lines.append(f"{self._indent}]")
 
         if target.private_deps:
             lines.append(f"{self._indent}private_deps = [")
             for dep in target.private_deps:
-                lines.append(f'{self._indent}  "{dep}",')
+                lines.append(f'{self._indent}  ":{dep}",')
             lines.append(f"{self._indent}]")
 
         if target.data_deps:

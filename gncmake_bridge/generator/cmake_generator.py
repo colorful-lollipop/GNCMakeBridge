@@ -1,5 +1,3 @@
-from typing import Any
-
 from gncmake_bridge.ir import Target, TargetType
 
 
@@ -60,7 +58,10 @@ class CMakeGenerator:
             self._generate_link_libraries(lines, target)
 
         if target.output_name:
-            lines.append(f'set_target_properties({target.name} PROPERTIES OUTPUT_NAME "{target.output_name}")')
+            lines.append(
+                f"set_target_properties({target.name} PROPERTIES "
+                f'OUTPUT_NAME "{target.output_name}")'
+            )
 
         return "\n".join(lines)
 
