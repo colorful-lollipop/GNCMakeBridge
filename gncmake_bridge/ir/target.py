@@ -15,6 +15,15 @@ class TargetType(Enum):
 
 
 @dataclass
+class ConditionBlock:
+    """Represents an if/else condition block."""
+
+    condition: str
+    properties: dict[str, Any] = field(default_factory=dict)
+    conditions: list["ConditionBlock"] = field(default_factory=list)
+
+
+@dataclass
 class Target:
     name: str
     type: TargetType
@@ -32,7 +41,7 @@ class Target:
     metadata: dict[str, Any] = field(default_factory=dict)
     output_name: str | None = None
     configs: list[str] = field(default_factory=list)
-    conditions: list[dict[str, Any]] = field(default_factory=list)
+    conditions: list[ConditionBlock] = field(default_factory=list)
     script: str | None = None
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)

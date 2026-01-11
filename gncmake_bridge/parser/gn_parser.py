@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from gncmake_bridge.ir import Target, TargetType
+from gncmake_bridge.ir import ConditionBlock, Target, TargetType
 
 
 def strip_string(s: str) -> str:
@@ -55,6 +55,94 @@ def parse_list(value: str) -> list[str]:
     return [strip_string(item) for item in items if strip_string(item)]
 
 
+def parse_condition_block(lines: list[str], start_idx: int) -> tuple[ConditionBlock, int]:
+    """Parse an if/else condition block and return the block and the ending index."""
+    line = lines[start_idx].strip()
+    condition_match = re.match(r"if\s*\(\s*(.+)\s*\)", line)
+    if not condition_match:
+        return ConditionBlock(condition=""), start_idx
+
+    condition = condition_match.group(1).strip()
+    condition_block = ConditionBlock(condition=condition)
+
+    brace_depth = 0
+    if line.endswith("{"):
+        brace_depth = 1
+    else:
+        brace_depth = 0
+
+    i = start_idx + 1
+    if brace_depth == 0:
+        if i < len(lines):
+            next_line = lines[i].strip()
+            if next_line == "{":
+                brace_depth = 1
+                i += 1
+
+    properties: dict[str, Any] = {}
+    while i < len(lines) and brace_depth > 0:
+        current_line = lines[i].rstrip()
+        current_line_stripped = current_line.strip()
+
+        brace_change = current_line_stripped.count("{") - current_line_stripped.count("}")
+        brace_depth += brace_change
+
+        if current_line_stripped and not current_line_stripped.startswith("//"):
+            if current_line_stripped.startswith("if"):
+                nested_block, new_i = parse_condition_block(lines, i)
+                condition_block.conditions.append(nested_block)
+                i = new_i + 1
+                continue
+
+            prop_match = re.match(r"^(\w+)\s*=\s*(.+)$", current_line_stripped)
+            if prop_match:
+                prop_name = prop_match.group(1)
+                prop_value = prop_match.group(2).strip()
+
+                if prop_name in (
+                    "sources",
+                    "headers",
+                    "deps",
+                    "public_deps",
+                    "private_deps",
+                    "data_deps",
+                    "cflags",
+                    "cflags_cc",
+                    "ldflags",
+                    "include_dirs",
+                    "defines",
+                    "visibility",
+                    "configs",
+                    "inputs",
+                    "outputs",
+                ):
+                    full_value = prop_value
+                    if not full_value.endswith("]"):
+                        j = i + 1
+                        while j < len(lines) and not lines[j].strip().endswith("]"):
+                            full_value += " " + lines[j].strip()
+                            j += 1
+                        if j < len(lines):
+                            full_value += " " + lines[j].strip()
+                            i = j
+                    properties[prop_name] = parse_list(full_value)
+                elif prop_name in (
+                    "output_name",
+                    "script",
+                    "response_file_name",
+                ):
+                    properties[prop_name] = strip_string(prop_value)
+                elif prop_name in ("testonly", "complete_static_lib"):
+                    properties[prop_name] = prop_value == "true"
+
+        i += 1
+        if brace_depth == 0:
+            break
+
+    condition_block.properties = properties
+    return condition_block, i
+
+
 def parse_gn_file(content: str) -> list[Target]:
     targets: list[Target] = []
     content = content.strip()
@@ -84,9 +172,9 @@ def parse_gn_file(content: str) -> list[Target]:
             target_type = type_map.get(target_type_str, TargetType.UNKNOWN)
 
             properties: dict[str, Any] = {}
+            conditions: list[ConditionBlock] = []
 
-            current_line = line
-            brace_depth = current_line.count("{") - current_line.count("}")
+            brace_depth = line.count("{") - line.count("}")
 
             if brace_depth == 0:
                 i += 1
@@ -106,6 +194,12 @@ def parse_gn_file(content: str) -> list[Target]:
                 brace_depth += brace_change
 
                 if current_line_stripped and not current_line_stripped.startswith("//"):
+                    if current_line_stripped.startswith("if"):
+                        cond_block, new_i = parse_condition_block(lines, i)
+                        conditions.append(cond_block)
+                        i = new_i + 1
+                        continue
+
                     prop_match = re.match(r"^(\w+)\s*=\s*(.+)$", current_line_stripped)
                     if prop_match:
                         prop_name = prop_match.group(1)
@@ -167,6 +261,7 @@ def parse_gn_file(content: str) -> list[Target]:
                 visibility=properties.get("visibility", []),
                 output_name=properties.get("output_name"),
                 configs=properties.get("configs", []),
+                conditions=conditions,
                 script=properties.get("script"),
                 inputs=properties.get("inputs", []),
                 outputs=properties.get("outputs", []),
