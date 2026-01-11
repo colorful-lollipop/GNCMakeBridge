@@ -33,6 +33,12 @@ class Target:
     output_name: str | None = None
     configs: list[str] = field(default_factory=list)
     conditions: list[dict[str, Any]] = field(default_factory=list)
+    script: str | None = None
+    inputs: list[str] = field(default_factory=list)
+    outputs: list[str] = field(default_factory=list)
+    response_file_name: str | None = None
+    testonly: bool = False
+    complete_static_lib: bool = False
 
     def is_valid(self) -> bool:
         return bool(self.name and self.type != TargetType.UNKNOWN)

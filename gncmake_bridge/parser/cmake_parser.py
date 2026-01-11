@@ -44,7 +44,7 @@ def extract_paren_content(lines: list[str], start_idx: int, start_pos: int = 0) 
     quote_char = None
     content_lines: list[str] = []
     current_line = ""
-    first_paren_found = True  # We're starting right after an opening paren
+    first_paren_found = True
 
     for idx in range(start_idx, len(lines)):
         line = lines[idx]

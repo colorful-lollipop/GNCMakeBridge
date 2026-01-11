@@ -125,9 +125,15 @@ def parse_gn_file(content: str) -> list[Target]:
                             "defines",
                             "visibility",
                             "configs",
+                            "inputs",
+                            "outputs",
                         ):
                             properties[prop_name] = parse_list(prop_value)
-                        elif prop_name == "output_name":
+                        elif prop_name in (
+                            "output_name",
+                            "script",
+                            "response_file_name",
+                        ):
                             properties[prop_name] = strip_string(prop_value)
                         elif prop_name in ("testonly", "complete_static_lib"):
                             properties[prop_name] = prop_value == "true"
@@ -152,6 +158,12 @@ def parse_gn_file(content: str) -> list[Target]:
                 visibility=properties.get("visibility", []),
                 output_name=properties.get("output_name"),
                 configs=properties.get("configs", []),
+                script=properties.get("script"),
+                inputs=properties.get("inputs", []),
+                outputs=properties.get("outputs", []),
+                response_file_name=properties.get("response_file_name"),
+                testonly=properties.get("testonly", False),
+                complete_static_lib=properties.get("complete_static_lib", False),
             )
             targets.append(target)
         else:

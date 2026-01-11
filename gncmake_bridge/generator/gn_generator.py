@@ -88,6 +88,30 @@ class GNGenerator:
                 lines.append(f'{self._indent}  "{config}",')
             lines.append(f"{self._indent}]")
 
+        if target.script:
+            lines.append(f'{self._indent}script = "{target.script}"')
+
+        if target.inputs:
+            lines.append(f"{self._indent}inputs = [")
+            for inp in target.inputs:
+                lines.append(f'{self._indent}  "{inp}",')
+            lines.append(f"{self._indent}]")
+
+        if target.outputs:
+            lines.append(f"{self._indent}outputs = [")
+            for out in target.outputs:
+                lines.append(f'{self._indent}  "{out}",')
+            lines.append(f"{self._indent}]")
+
+        if target.testonly:
+            lines.append(f"{self._indent}testonly = true")
+
+        if target.response_file_name:
+            lines.append(
+                f'{self._indent}response_file_name = '
+                f'"{target.response_file_name}"'
+            )
+
         lines.append("}")
         return "\n".join(lines)
 

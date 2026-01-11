@@ -3,12 +3,15 @@ pyproject.toml
 gncmake_bridge/__init__.py
 gncmake_bridge/__main__.py
 gncmake_bridge/cli.py
+gncmake_bridge/exceptions.py
 gncmake_bridge.egg-info/PKG-INFO
 gncmake_bridge.egg-info/SOURCES.txt
 gncmake_bridge.egg-info/dependency_links.txt
 gncmake_bridge.egg-info/entry_points.txt
 gncmake_bridge.egg-info/requires.txt
 gncmake_bridge.egg-info/top_level.txt
+gncmake_bridge/config/__init__.py
+gncmake_bridge/config/config.py
 gncmake_bridge/converter/__init__.py
 gncmake_bridge/converter/converter.py
 gncmake_bridge/generator/__init__.py
@@ -20,6 +23,7 @@ gncmake_bridge/ir/toolchain.py
 gncmake_bridge/parser/__init__.py
 gncmake_bridge/parser/cmake_parser.py
 gncmake_bridge/parser/gn_parser.py
+tests/test_advanced.py
 tests/test_converter.py
 tests/test_generator.py
 tests/test_parser.py
